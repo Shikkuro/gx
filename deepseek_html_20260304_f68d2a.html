@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دردشة الثلاثة - زر الحذف</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: linear-gradient(145deg, #1e2b3c 0%, #0f1a26 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            direction: rtl;
+        }
+        .container {
+            width: 90%;
+            max-width: 1100px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 32px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            padding: 25px;
+        }
+        /* صفحة تسجيل الدخول */
+        .login-page {
+            max-width: 400px;
+            margin: 50px auto;
+            background: rgba(15, 25, 35, 0.8);
+            border-radius: 28px;
+            padding: 35px 30px;
+            border: 1px solid #3a4a5a;
+            box-shadow: 0 15px 30px -10px black;
+        }
+        .login-page h2 {
+            color: #d1e0f0;
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 400;
+            letter-spacing: 1px;
+        }
+        .login-page input {
+            width: 100%;
+            padding: 14px 18px;
+            margin: 10px 0;
+            background: #1e2f3f;
+            border: 1px solid #3f5567;
+            border-radius: 40px;
+            color: white;
+            font-size: 16px;
+            outline: none;
+            transition: 0.2s;
+        }
+        .login-page input:focus {
+            border-color: #6d8faa;
+            background: #253c4e;
+        }
+        .login-page button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 20px;
+            background: #3f5e77;
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 1px solid #5f7e97;
+        }
+        .login-page button:hover {
+            background: #507b9c;
+            transform: scale(1.02);
+        }
+        .error-msg {
+            color: #ffa7a7;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        /* صفحة الدردشة */
+        .chat-page {
+            display: none; /* تُظهرها JavaScript بعد الدخول */
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px 20px 15px;
+            color: #cbdbe9;
+            border-bottom: 1px solid #2f4151;
+        }
+        .header h3 {
+            font-weight: 400;
+            background: #1e3347;
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-size: 18px;
+            border: 1px solid #3d5770;
+        }
+        .logout-btn {
+            background: transparent;
+            border: 1px solid #6d8a9e;
+            color: #c1d3e3;
+            padding: 8px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: 0.2s;
+        }
+        .logout-btn:hover {
+            background: #2f4a60;
+            color: white;
+            border-color: #8fb0cc;
+        }
+        .chats-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 25px;
+            justify-content: center;
+        }
+        .chat-box {
+            flex: 1 1 300px;
+            min-width: 280px;
+            background: rgba(10, 20, 28, 0.7);
+            border-radius: 30px;
+            border: 1px solid #2c4052;
+            overflow: hidden;
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            height: 480px; /* زيادة بسيطة لإفساح مجال للزر الجديد */
+        }
+        .chat-header {
+            background: #1f3445;
+            padding: 12px 20px;
+            color: #dbeafe;
+            font-weight: 600;
+            border-bottom: 1px solid #3a5266;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-header .title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chat-header .title span {
+            background: #38658f;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px #6da5d9;
+        }
+        .delete-chat-btn {
+            background: #4d2e2e;
+            border: 1px solid #a15e5e;
+            color: #ffcece;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 300;
+        }
+        .delete-chat-btn:hover {
+            background: #6f3f3f;
+            color: white;
+            border-color: #d78787;
+        }
+        .messages-area {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #0d1a24;
+        }
+        .message {
+            max-width: 85%;
+            padding: 10px 16px;
+            border-radius: 24px;
+            word-wrap: break-word;
+            font-size: 15px;
+            line-height: 1.5;
+            animation: fadeIn 0.2s ease;
+        }
+        .message.sent {
+            align-self: flex-end;
+            background: #2b4d6a;
+            color: white;
+            border-bottom-left-radius: 6px;
+            border: 1px solid #4f7b9e;
+        }
+        .message.received {
+            align-self: flex-start;
+            background: #233745;
+            color: #e0edf5;
+            border-bottom-right-radius: 6px;
+            border: 1px solid #3f5a6e;
+        }
+        .timestamp {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+            display: block;
+        }
+        .input-area {
+            display: flex;
+            padding: 12px 15px;
+            background: #12212e;
+            border-top: 1px solid #2a3f50;
+            gap: 10px;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 10px 18px;
+            border-radius: 30px;
+            border: none;
+            background: #1c3243;
+            color: white;
+            outline: 1px solid #3b576d;
+            font-size: 14px;
+        }
+        .input-area input:focus {
+            outline: 2px solid #5f8db0;
+        }
+        .input-area button {
+            background: #38648b;
+            border: none;
+            border-radius: 30px;
+            padding: 0 20px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.15s;
+            border: 1px solid #6893b5;
+            font-size: 15px;
+        }
+        .input-area button:hover {
+            background: #4a7ca8;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        footer {
+            text-align: center;
+            color: #5f7586;
+            margin-top: 20px;
+            font-size: 13px;
+        }
+        .note {
+            font-size: 12px;
+            color: #8ba3b8;
+            margin-right: 15px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- صفحة تسجيل الدخول -->
+    <div id="loginPage" class="login-page">
+        <h2>🔐 دخول الخواص</h2>
+        <input type="text" id="username" placeholder="اسم المستخدم" autocomplete="off">
+        <input type="password" id="password" placeholder="كلمة المرور">
+        <button id="loginBtn">دخول</button>
+        <div id="loginError" class="error-msg"></div>
+    </div>
+
+    <!-- صفحة الدردشة (تظهر بعد الدخول) -->
+    <div id="chatPage" class="chat-page">
+        <div class="header">
+            <h3>👤 <span id="currentUserDisplay"></span></h3>
+            <button class="logout-btn" id="logoutBtn">خروج</button>
+        </div>
+        <div class="chats-container" id="chatsContainer">
+            <!-- يتم إنشاء الدردشات ديناميكياً بالـ JavaScript -->
+        </div>
+        <footer>💬 زر "حذف الكل" يمسح رسائل هذه الدردشة من طرفك فقط</footer>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- البيانات الثابتة للحسابات ----------
+        const VALID_CREDENTIALS = {
+            gxcs: '258097',
+            sefc: '134679',
+            gheq: '147369'
+        };
+        const USERS = Object.keys(VALID_CREDENTIALS); // ['gxcs', 'sefc', 'gheq']
+
+        // ---------- المتغيرات العامة ----------
+        let currentUser = null;          // المستخدم الحالي بعد الدخول
+        let otherUsers = [];             // المستخدمين الآخرين (عدا currentUser)
+
+        // عناصر DOM
+        const loginPage = document.getElementById('loginPage');
+        const chatPage = document.getElementById('chatPage');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginError = document.getElementById('loginError');
+        const currentUserSpan = document.getElementById('currentUserDisplay');
+        const chatsContainer = document.getElementById('chatsContainer');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        // ---------- دوال مساعدة للتخزين المحلي ----------
+        // الحصول على مفتاح المحادثة من منظور مستخدم معين
+        function getChatKey(owner, other) {
+            return `${owner}_${other}`;  // مثلاً "gxcs_sefc"
+        }
+
+        // جلب الرسائل المخزنة لمستخدم معين مع مستخدم آخر
+        function getMessages(owner, other) {
+            const key = getChatKey(owner, other);
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : [];
+        }
+
+        // حفظ الرسائل (استبدال كامل)
+        function saveMessages(owner, other, messages) {
+            const key = getChatKey(owner, other);
+            localStorage.setItem(key, JSON.stringify(messages));
+        }
+
+        // إضافة رسالة إلى مفتاحي (المرسل والمستقبل)
+        function addMessageToBoth(sender, receiver, text) {
+            if (!text.trim()) return;
+
+            const messageObj = {
+                text: text,
+                sender: sender,
+                timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            // 1. أضف إلى مفتاح sender مع receiver
+            const senderKeyMessages = getMessages(sender, receiver);
+            senderKeyMessages.push(messageObj);
+            saveMessages(sender, receiver, senderKeyMessages);
+
+            // 2. أضف إلى مفتاح receiver مع sender
+            const receiverKeyMessages = getMessages(receiver, sender);
+            receiverKeyMessages.push(messageObj);
+            saveMessages(receiver, sender, receiverKeyMessages);
+        }
+
+        // ========== دالة الحذف: تحذف كل رسائل محادثة معينة من منظور المستخدم الحالي فقط ==========
+        function deleteChat(owner, other) {
+            if (!owner || !other) return;
+            const key = getChatKey(owner, other);
+            localStorage.removeItem(key);  // إزالة المفتاح بالكامل → جميع الرسائل تختفي من منظور هذا المستخدم
+            // تحديث واجهة هذه الدردشة
+            updateChatArea(owner, other);
+        }
+
+        // ---------- دوال عرض واجهة الدردشة ----------
+        function renderChats() {
+            if (!currentUser) return;
+
+            // تحديث اسم المستخدم في الـ header
+            currentUserSpan.textContent = currentUser;
+
+            // تحديد المستخدمين الآخرين
+            otherUsers = USERS.filter(u => u !== currentUser);
+
+            // بناء HTML لكل دردشة
+            let htmlStr = '';
+            otherUsers.forEach(other => {
+                const messages = getMessages(currentUser, other); // الرسائل من منظور currentUser
+                htmlStr += `
+                    <div class="chat-box" data-other="${other}">
+                        <div class="chat-header">
+                            <div class="title">
+                                <span></span> إلى ${other}
+                            </div>
+                            <button class="delete-chat-btn" data-receiver="${other}">🗑️ حذف الكل</button>
+                        </div>
+                        <div class="messages-area" id="msg-area-${other}">
+                            ${renderMessages(messages, other)}
+                        </div>
+                        <div class="input-area">
+                            <input type="text" id="input-${other}" placeholder="اكتب رسالة..." autocomplete="off">
+                            <button class="send-btn" data-receiver="${other}">إرسال</button>
+                        </div>
+                    </div>
+                `;
+            });
+            chatsContainer.innerHTML = htmlStr;
+
+            // إضافة مستمعي الأحداث لأزرار الإرسال
+            document.querySelectorAll('.send-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const receiver = e.target.dataset.receiver;
+                    const input = document.getElementById(`input-${receiver}`);
+                    const text = input.value.trim();
+                    if (text) {
+                        addMessageToBoth(currentUser, receiver, text);
+                        input.value = '';
+                        // تحديث واجهة المرسل فوراً (الطرف الآخر سيتم تحديثه عبر storage event)
+                        updateChatArea(currentUser, receiver);
+                    }
+                });
+            });
+
+            // إضافة مستمعي الأحداث لأزرار الحذف
+            document.querySelectorAll('.delete-chat-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const receiver = e.target.dataset.receiver;
+                    // تأكيد قبل الحذف (اختياري)
+                    if (confirm(`هل تريد حذف كل الرسائل مع ${receiver}؟`)) {
+                        deleteChat(currentUser, receiver);
+                    }
+                });
+            });
+
+            // إضافة مستمعي الأحداث لحقل الإدخال (إرسال بالضغط على Enter)
+            document.querySelectorAll('.chat-box input[type="text"]').forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        const receiver = input.id.replace('input-', '');
+                        const text = input.value.trim();
+                        if (text) {
+                            addMessageToBoth(currentUser, receiver, text);
+                            input.value = '';
+                            updateChatArea(currentUser, receiver);
+                        }
+                    }
+                });
+            });
+        }
+
+        // تحويل قائمة الرسائل إلى HTML
+        function renderMessages(messages, otherUser) {
+            if (!messages || messages.length === 0) {
+                return '<div style="color:#5b778b; text-align:center; margin-top:20px;">💭 لا توجد رسائل بعد</div>';
+            }
+            return messages.map(msg => {
+                const isMine = msg.sender === currentUser;
+                return `
+                    <div class="message ${isMine ? 'sent' : 'received'}">
+                        ${msg.text}
+                        <span class="timestamp">${msg.timestamp || ''}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // تحديث منطقة عرض محادثة معينة (بين currentUser وشخص آخر)
+        function updateChatArea(owner, other) {
+            const area = document.getElementById(`msg-area-${other}`);
+            if (area) {
+                const messages = getMessages(owner, other);
+                area.innerHTML = renderMessages(messages, other);
+                // تمرير إلى الأسفل
+                area.scrollTop = area.scrollHeight;
+            }
+        }
+
+        // تحديث جميع مناطق المحادثة للمستخدم الحالي
+        function refreshAllChats() {
+            otherUsers.forEach(other => {
+                updateChatArea(currentUser, other);
+            });
+        }
+
+        // ---------- مصادقة الدخول ----------
+        function handleLogin() {
+            const user = usernameInput.value.trim();
+            const pass = passwordInput.value.trim();
+
+            if (VALID_CREDENTIALS[user] && VALID_CREDENTIALS[user] === pass) {
+                // تسجيل الدخول ناجح
+                currentUser = user;
+                // تخزين المستخدم الحالي في sessionStorage (ليبقى خلال الجلسة حتى لو ريفريش)
+                sessionStorage.setItem('loggedInUser', currentUser);
+                loginError.textContent = '';
+
+                // إخفاء صفحة الدخول وإظهار الدردشة
+                loginPage.style.display = 'none';
+                chatPage.style.display = 'block';
+
+                // إعداد واجهة الدردشة
+                renderChats();
+            } else {
+                loginError.textContent = '❌ اسم مستخدم أو كلمة مرور غير صحيحة';
+            }
+        }
+
+        // ---------- تسجيل الخروج ----------
+        function logout() {
+            // مسح المستخدم من sessionStorage
+            sessionStorage.removeItem('loggedInUser');
+            currentUser = null;
+            // العودة لصفحة الدخول
+            loginPage.style.display = 'block';
+            chatPage.style.display = 'none';
+            usernameInput.value = '';
+            passwordInput.value = '';
+            loginError.textContent = '';
+        }
+
+        // ---------- التحقق من وجود جلسة سابقة عند تحميل الصفحة ----------
+        function initFromSession() {
+            const savedUser = sessionStorage.getItem('loggedInUser');
+            if (savedUser && VALID_CREDENTIALS[savedUser]) {
+                // استعادة الجلسة
+                currentUser = savedUser;
+                loginPage.style.display = 'none';
+                chatPage.style.display = 'block';
+                renderChats();
+            } else {
+                // لا يوجد مستخدم مخزن، نظهر صفحة الدخول
+                loginPage.style.display = 'block';
+                chatPage.style.display = 'none';
+                sessionStorage.removeItem('loggedInUser');
+            }
+        }
+
+        // ---------- الاستماع لتغييرات localStorage (للتحديث الفوري بين الأطراف) ----------
+        function setupStorageListener() {
+            window.addEventListener('storage', function(e) {
+                if (!currentUser) return;
+
+                // إذا كان المفتاح الذي تغير يخصنا (يبدأ بـ currentUser + '_')
+                if (e.key && e.key.startsWith(currentUser + '_')) {
+                    const other = e.key.replace(currentUser + '_', '');
+                    if (otherUsers.includes(other)) {
+                        updateChatArea(currentUser, other);
+                    }
+                }
+            });
+        }
+
+        // ---------- إزالة beforeunload الذي كان يمسح البيانات ----------
+        // لم نعد نستخدم beforeunload لمسح الرسائل. الرسائل تبقى.
+        // لذلك لا يوجد setupBeforeUnload
+
+        // ---------- تهيئة الموقع ----------
+        function init() {
+            setupStorageListener();
+
+            // أحداث تسجيل الدخول
+            loginBtn.addEventListener('click', handleLogin);
+            [usernameInput, passwordInput].forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') handleLogin();
+                });
+            });
+
+            // زر الخروج
+            logoutBtn.addEventListener('click', logout);
+
+            // التحقق من الجلسة المخزنة
+            initFromSession();
+        }
+
+        // انطلاق
+        init();
+    })();
+</script>
+</body>
+</html>
