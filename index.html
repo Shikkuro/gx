@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>دردشة الثلاثة - بدون مسح</title>
+    <title>دردشة الثلاثة - بدون مسح أبداً</title>
     <style>
         * {
             margin: 0;
@@ -244,7 +244,8 @@
         };
 
         let currentUser = null;
-        let lastMessageCount = {}; // لنتتبع عدد الرسائل
+        let lastMessageCount = {};
+        let inputValues = {}; // هنخزن فيها قيم الإدخال
 
         // عناصر الصفحة
         const loginPage = document.getElementById('loginPage');
@@ -304,35 +305,41 @@
                           .sort((a, b) => a.createdAt - b.createdAt);
         }
 
-        // حفظ النص اللي كتبته
-        function saveInputValue(receiver, value) {
-            sessionStorage.setItem(`input_${currentUser}_${receiver}`, value);
-        }
-
-        function getInputValue(receiver) {
-            return sessionStorage.getItem(`input_${currentUser}_${receiver}`) || '';
-        }
-
-        async function loadChats(keepInputs = true) {
+        // تحديث الرسائل فقط (بدون لمس الـ input)
+        async function updateMessagesOnly() {
             if (!currentUser) return;
             
-            // احفظ النصوص الحالية
-            const inputs = {};
-            if (keepInputs) {
-                const others = Object.keys(USERS).filter(u => u !== currentUser);
-                others.forEach(other => {
-                    const input = document.getElementById(`input-${other}`);
-                    if (input) {
-                        inputs[other] = input.value;
-                    }
-                });
-            }
+            const messages = await getMessages();
+            const others = Object.keys(USERS).filter(u => u !== currentUser);
+            
+            others.forEach(other => {
+                const chatId = getChatId(currentUser, other);
+                const chatMessages = filterMessagesByChat(messages, chatId);
+                
+                const msgsDiv = document.getElementById(`msgs-${other}`);
+                if (msgsDiv) {
+                    msgsDiv.innerHTML = renderMessages(chatMessages);
+                    msgsDiv.scrollTop = msgsDiv.scrollHeight;
+                }
+            });
+        }
+
+        // تحميل الصفحة كاملة (مرة واحدة بس)
+        async function loadChats() {
+            if (!currentUser) return;
             
             loading.style.display = 'block';
             const messages = await getMessages();
             loading.style.display = 'none';
             
             const others = Object.keys(USERS).filter(u => u !== currentUser);
+            
+            // سجل عدد الرسائل لكل محادثة
+            others.forEach(other => {
+                const chatId = getChatId(currentUser, other);
+                const chatMessages = filterMessagesByChat(messages, chatId);
+                lastMessageCount[chatId] = chatMessages.length;
+            });
             
             let html = '';
             
@@ -351,8 +358,8 @@
                         </div>
                         <div class="input-area">
                             <input type="text" id="input-${other}" placeholder="اكتب رسالة..." 
-                                   value="${inputs[other] || getInputValue(other)}"
-                                   oninput="saveInputValue('${other}', this.value)"
+                                   value="${inputValues[other] || ''}"
+                                   oninput="inputValues['${other}'] = this.value"
                                    onkeypress="if(event.key==='Enter') sendMessage('${other}')">
                             <button onclick="sendMessage('${other}')">إرسال</button>
                         </div>
@@ -401,8 +408,16 @@
             
             await sendMessageToAPI(message);
             input.value = '';
-            saveInputValue(receiver, '');
-            await loadChats();
+            inputValues[receiver] = ''; // امسح القيمة المخزنة
+            
+            // حدث الرسائل بس
+            await updateMessagesOnly();
+            
+            // حدث العداد
+            const messages = await getMessages();
+            const chatId = getChatId(currentUser, receiver);
+            const chatMessages = filterMessagesByChat(messages, chatId);
+            lastMessageCount[chatId] = chatMessages.length;
         }
 
         async function deleteChat(receiver) {
@@ -410,7 +425,14 @@
             
             const chatId = getChatId(currentUser, receiver);
             await deleteMessagesFromAPI(chatId);
-            await loadChats();
+            
+            // حدث الرسائل بس
+            await updateMessagesOnly();
+            
+            // حدث العداد
+            const messages = await getMessages();
+            const chatMessages = filterMessagesByChat(messages, chatId);
+            lastMessageCount[chatId] = chatMessages.length;
         }
 
         // التحقق من الرسائل الجديدة (بدون مسح النص)
@@ -420,22 +442,22 @@
             const messages = await getMessages();
             const others = Object.keys(USERS).filter(u => u !== currentUser);
             
-            let needsUpdate = false;
-            
             for (const other of others) {
                 const chatId = getChatId(currentUser, other);
                 const chatMessages = filterMessagesByChat(messages, chatId);
                 const currentCount = chatMessages.length;
                 const lastCount = lastMessageCount[chatId] || 0;
                 
-                if (currentCount !== lastCount) {
-                    needsUpdate = true;
+                if (currentCount > lastCount) { // فيه رسايل جديدة
                     lastMessageCount[chatId] = currentCount;
+                    
+                    // حدث منطقة الرسائل لهذه المحادثة فقط
+                    const msgsDiv = document.getElementById(`msgs-${other}`);
+                    if (msgsDiv) {
+                        msgsDiv.innerHTML = renderMessages(chatMessages);
+                        msgsDiv.scrollTop = msgsDiv.scrollHeight;
+                    }
                 }
-            }
-            
-            if (needsUpdate) {
-                await loadChats(true); // true = احتفظ بالنص
             }
         }
 
@@ -447,6 +469,7 @@
             if (USERS[username] && USERS[username] === password) {
                 currentUser = username;
                 sessionStorage.setItem('user', currentUser);
+                inputValues = {}; // reset input values
                 
                 loginPage.style.display = 'none';
                 chatPage.style.display = 'block';
@@ -454,16 +477,7 @@
                 
                 await loadChats();
                 
-                // تحميل آخر عدد للرسائل
-                const messages = await getMessages();
-                const others = Object.keys(USERS).filter(u => u !== currentUser);
-                others.forEach(other => {
-                    const chatId = getChatId(currentUser, other);
-                    const chatMessages = filterMessagesByChat(messages, chatId);
-                    lastMessageCount[chatId] = chatMessages.length;
-                });
-                
-                // فحص الرسائل الجديدة كل 3 ثواني بدون مسح النص
+                // فحص الرسائل الجديدة كل 3 ثواني (بدون لمس الـ input)
                 setInterval(checkNewMessages, 3000);
             } else {
                 loginError.textContent = '❌ اسم مستخدم أو كلمة مرور خطأ';
@@ -474,6 +488,7 @@
         function logout() {
             currentUser = null;
             sessionStorage.removeItem('user');
+            inputValues = {};
             
             loginPage.style.display = 'block';
             chatPage.style.display = 'none';
@@ -487,19 +502,13 @@
             const savedUser = sessionStorage.getItem('user');
             if (savedUser && USERS[savedUser]) {
                 currentUser = savedUser;
+                inputValues = {};
+                
                 loginPage.style.display = 'none';
                 chatPage.style.display = 'block';
                 currentUserSpan.textContent = currentUser;
                 
                 await loadChats();
-                
-                const messages = await getMessages();
-                const others = Object.keys(USERS).filter(u => u !== currentUser);
-                others.forEach(other => {
-                    const chatId = getChatId(currentUser, other);
-                    const chatMessages = filterMessagesByChat(messages, chatId);
-                    lastMessageCount[chatId] = chatMessages.length;
-                });
                 
                 setInterval(checkNewMessages, 3000);
             }
