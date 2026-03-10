@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>دردشة الثلاثة - سحابي</title>
+    <title>دردشة الثلاثة - بدون مسح</title>
     <style>
         * {
             margin: 0;
@@ -236,7 +236,7 @@
         // ========== 🔥 رابط MockAPI الخاص بك ==========
         const MOCKAPI_URL = 'https://69afaf66c63dd197feb9d08c.mockapi.io/messages';
         
-        // ========== بيانات المستخدمين (كلمات مرور قوية ومختلفة) ==========
+        // ========== بيانات المستخدمين ==========
         const USERS = {
             Omar: 'Omar@2024#Secure',
             Marwan: 'Marwan!789$Strong',
@@ -244,7 +244,7 @@
         };
 
         let currentUser = null;
-        let refreshInterval = null;
+        let lastMessageCount = {}; // لنتتبع عدد الرسائل
 
         // عناصر الصفحة
         const loginPage = document.getElementById('loginPage');
@@ -304,17 +304,34 @@
                           .sort((a, b) => a.createdAt - b.createdAt);
         }
 
-        async function loadAllMessages() {
+        // حفظ النص اللي كتبته
+        function saveInputValue(receiver, value) {
+            sessionStorage.setItem(`input_${currentUser}_${receiver}`, value);
+        }
+
+        function getInputValue(receiver) {
+            return sessionStorage.getItem(`input_${currentUser}_${receiver}`) || '';
+        }
+
+        async function loadChats(keepInputs = true) {
+            if (!currentUser) return;
+            
+            // احفظ النصوص الحالية
+            const inputs = {};
+            if (keepInputs) {
+                const others = Object.keys(USERS).filter(u => u !== currentUser);
+                others.forEach(other => {
+                    const input = document.getElementById(`input-${other}`);
+                    if (input) {
+                        inputs[other] = input.value;
+                    }
+                });
+            }
+            
             loading.style.display = 'block';
             const messages = await getMessages();
             loading.style.display = 'none';
-            return messages;
-        }
-
-        async function refreshChats() {
-            if (!currentUser) return;
             
-            const messages = await loadAllMessages();
             const others = Object.keys(USERS).filter(u => u !== currentUser);
             
             let html = '';
@@ -334,6 +351,8 @@
                         </div>
                         <div class="input-area">
                             <input type="text" id="input-${other}" placeholder="اكتب رسالة..." 
+                                   value="${inputs[other] || getInputValue(other)}"
+                                   oninput="saveInputValue('${other}', this.value)"
                                    onkeypress="if(event.key==='Enter') sendMessage('${other}')">
                             <button onclick="sendMessage('${other}')">إرسال</button>
                         </div>
@@ -382,7 +401,8 @@
             
             await sendMessageToAPI(message);
             input.value = '';
-            await refreshChats();
+            saveInputValue(receiver, '');
+            await loadChats();
         }
 
         async function deleteChat(receiver) {
@@ -390,11 +410,37 @@
             
             const chatId = getChatId(currentUser, receiver);
             await deleteMessagesFromAPI(chatId);
-            await refreshChats();
+            await loadChats();
+        }
+
+        // التحقق من الرسائل الجديدة (بدون مسح النص)
+        async function checkNewMessages() {
+            if (!currentUser) return;
+            
+            const messages = await getMessages();
+            const others = Object.keys(USERS).filter(u => u !== currentUser);
+            
+            let needsUpdate = false;
+            
+            for (const other of others) {
+                const chatId = getChatId(currentUser, other);
+                const chatMessages = filterMessagesByChat(messages, chatId);
+                const currentCount = chatMessages.length;
+                const lastCount = lastMessageCount[chatId] || 0;
+                
+                if (currentCount !== lastCount) {
+                    needsUpdate = true;
+                    lastMessageCount[chatId] = currentCount;
+                }
+            }
+            
+            if (needsUpdate) {
+                await loadChats(true); // true = احتفظ بالنص
+            }
         }
 
         // ========== تسجيل الدخول ==========
-        function handleLogin() {
+        async function handleLogin() {
             const username = usernameInput.value.trim();
             const password = passwordInput.value.trim();
 
@@ -406,13 +452,19 @@
                 chatPage.style.display = 'block';
                 currentUserSpan.textContent = currentUser;
                 
-                refreshChats();
+                await loadChats();
                 
-                // تحديث كل 3 ثواني
-                if (refreshInterval) clearInterval(refreshInterval);
-                refreshInterval = setInterval(() => {
-                    if (currentUser) refreshChats();
-                }, 3000);
+                // تحميل آخر عدد للرسائل
+                const messages = await getMessages();
+                const others = Object.keys(USERS).filter(u => u !== currentUser);
+                others.forEach(other => {
+                    const chatId = getChatId(currentUser, other);
+                    const chatMessages = filterMessagesByChat(messages, chatId);
+                    lastMessageCount[chatId] = chatMessages.length;
+                });
+                
+                // فحص الرسائل الجديدة كل 3 ثواني بدون مسح النص
+                setInterval(checkNewMessages, 3000);
             } else {
                 loginError.textContent = '❌ اسم مستخدم أو كلمة مرور خطأ';
             }
@@ -422,7 +474,6 @@
         function logout() {
             currentUser = null;
             sessionStorage.removeItem('user');
-            if (refreshInterval) clearInterval(refreshInterval);
             
             loginPage.style.display = 'block';
             chatPage.style.display = 'none';
@@ -440,12 +491,17 @@
                 chatPage.style.display = 'block';
                 currentUserSpan.textContent = currentUser;
                 
-                await refreshChats();
+                await loadChats();
                 
-                if (refreshInterval) clearInterval(refreshInterval);
-                refreshInterval = setInterval(() => {
-                    if (currentUser) refreshChats();
-                }, 3000);
+                const messages = await getMessages();
+                const others = Object.keys(USERS).filter(u => u !== currentUser);
+                others.forEach(other => {
+                    const chatId = getChatId(currentUser, other);
+                    const chatMessages = filterMessagesByChat(messages, chatId);
+                    lastMessageCount[chatId] = chatMessages.length;
+                });
+                
+                setInterval(checkNewMessages, 3000);
             }
         }
 
